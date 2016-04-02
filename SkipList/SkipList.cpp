@@ -1,11 +1,13 @@
 #include "SkipList.h"
 #include <cstdlib>
+#include <ctime>
 
 using namespace std;
 
 int SkipList::RandLevel() {
   int level = 0;
-  while (rand() && 1 == 1) level++;
+  srand((unsigned int)time(NULL));
+  while ((rand() & 1) == 1) level++;
   if (level > SKIP_LIST_MAX_LEVEL) return SKIP_LIST_MAX_LEVEL;
   return level;
 }
@@ -34,7 +36,7 @@ bool SkipList::Insert(int key, int val) {
   SkipListNode* preNodes[SKIP_LIST_MAX_LEVEL_COUNT];
   int iter = 0;
   while (iter <= level) {
-    preNodes[iter] = header->forward[iter];
+    preNodes[iter] = header;
     while(preNodes[iter]->forward[iter]) {
       int nextKey = preNodes[iter]->forward[iter]->key;
       if (nextKey == key) return false;
@@ -53,46 +55,36 @@ bool SkipList::Insert(int key, int val) {
 }
 
 bool SkipList::Delete(int key) {
-  SkipListNode* preNodes[SKIP_LIST_MAX_LEVEL_COUNT];
-  int iter = 0;
-  while (iter <= this->level) {
-    preNodes[iter] = header->forward[iter];
-    while (preNodes[iter]->forward[iter]) {
-      int nextKey = preNodes[iter]->forward[iter]->key;
-      if (nextKey >= key) break;
-      preNodes[iter] = preNodes[iter]->forward[iter];
-    }      
-    ++iter;
-  }
-  iter = this->level;
-  while (iter) {
-    if (preNodes[iter]->forward[iter] && preNodes[iter]->forward[iter]->key == key) {
-      preNodes[iter]->forward[iter] = preNodes[iter]->forward[iter]->forward[iter];
-      if (iter == this->level) --this->level;
+  int iter = this->level;
+  SkipListNode* node = nullptr;
+  SkipListNode* ptr = nullptr;
+  while (iter >= 0) {
+    ptr = header;
+    while (ptr->forward[iter] && ptr->forward[iter]->key < key) ptr = ptr->forward[iter];
+    if (ptr->forward[iter] && ptr->forward[iter]->key == key ) {
+      node = ptr->forward[iter];
+      ptr->forward[iter] = ptr->forward[iter]->forward[iter];
     }
     --iter;
   }
-  if (preNodes[0]->forward[0] && preNodes[0]->forward[0]->key == key) {
-    SkipListNode* next = preNodes[0]->forward[0]->forward[0];
-    delete preNodes[0]->forward[0];
-    preNodes[0]->forward[0] = next;
+  if (node) {
+    free(node);
     return true;
   }
-  else
-    return false;
+  return false;
 }
 
 SkipListNode* SkipList::Find(int key) {
   int level = this->level;
-  SkipListNode* ptr = this->header->forward[level];
-  while (level >= 0 && ptr && ptr->key != key) {
+  SkipListNode* ptr = header;
+  while (level >= 0 && ptr && (ptr == header || ptr->key != key)) {
     if (!ptr->forward[level] || ptr->forward[level]->key > key) {
       --level;
       continue;
     }
     ptr = ptr->forward[level];
   }
-  if (ptr && ptr->key == key)
+  if (ptr != header && ptr && ptr->key == key)
     return ptr;
   else
     return nullptr;
